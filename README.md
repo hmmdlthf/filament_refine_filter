@@ -63,6 +63,9 @@ If the enum implements Filament's `HasLabel` contract, its `getLabel()` is used 
 | `->showCounts(bool $condition = true)` | `true` | Append `(count)` to each option's label |
 | `->hideZeroCounts(bool $condition = true)` | `false` | Drop options whose faceted count is currently 0 |
 | `->searchable(bool $condition = true)` | `false` | Add a search box inside the checkbox list (useful for long option lists) |
+| `->collapsible(bool $condition = true)` | `false` | Wrap this facet's checkboxes in their own collapsible section, independent of every other facet and of the whole filter panel's own `FiltersLayout` collapse |
+| `->collapsed(bool $condition = true)` | `false` | Start collapsed. Implies `->collapsible()` |
+| `->persistCollapsed(bool $condition = true)` | `false` | Remember the collapsed/expanded state client-side across reloads. Implies `->collapsible()` |
 
 ## How faceted counting works
 
@@ -95,14 +98,13 @@ component and is the next test file to add.
 ## Current limitations (v1)
 
 - `BelongsTo` relationships only — `BelongsToMany` (pivot-table facets) is planned for v2.
-- The whole filter panel collapses as one block (`FiltersLayout::AboveContentCollapsible`); per-facet independent collapse is planned for v2.
 - No "+ View All" modal for facets with very long option lists yet.
 - No active-filter tag chips yet.
 
 ## Roadmap
 
 - [ ] `BelongsToMany` facets
-- [ ] Per-facet independent collapse
+- [x] Per-facet independent collapse
 - [ ] "+ View All" modal for long option lists
 - [ ] Active-filter tag chips (removable, shown above the table)
 - [ ] Configurable option sort (count desc vs. label asc)

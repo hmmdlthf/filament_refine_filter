@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Hmmdlthf\FilamentRefineFilter\Filters;
 
 use Filament\Forms\Components\CheckboxList;
+use Filament\Schemas\Components\Section;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Filters\Filter;
 use Hmmdlthf\FilamentRefineFilter\FacetSources\EnumFacetSource;
@@ -42,6 +43,12 @@ class RefineFilter extends Filter
     protected bool $hideZeroCounts = false;
 
     protected bool $searchableList = false;
+
+    protected bool $collapsibleFacet = false;
+
+    protected bool $collapsedByDefault = false;
+
+    protected bool $persistCollapsedState = false;
 
     /** The name of the CheckboxList field inside this filter's schema. */
     protected string $fieldName = 'values';
@@ -94,6 +101,38 @@ class RefineFilter extends Filter
         return $this->buildSchema();
     }
 
+    /**
+     * Wrap this facet's checkboxes in their own collapsible section,
+     * independent of the whole filter panel's own FiltersLayout collapse.
+     */
+    public function collapsible(bool $condition = true): static
+    {
+        $this->collapsibleFacet = $condition;
+
+        return $this->buildSchema();
+    }
+
+    /** Implies ->collapsible() so this can be used on its own. */
+    public function collapsed(bool $condition = true): static
+    {
+        $this->collapsedByDefault = $condition;
+        $this->collapsibleFacet = true;
+
+        return $this->buildSchema();
+    }
+
+    /**
+     * Remembers the collapsed/expanded state client-side across reloads.
+     * Implies ->collapsible() so this can be used on its own.
+     */
+    public function persistCollapsed(bool $condition = true): static
+    {
+        $this->persistCollapsedState = $condition;
+        $this->collapsibleFacet = true;
+
+        return $this->buildSchema();
+    }
+
     protected function requireSource(): FacetSource
     {
         if (! $this->source) {
@@ -130,7 +169,24 @@ class RefineFilter extends Filter
             $checkboxList->searchable();
         }
 
-        $this->schema([$checkboxList]);
+        $schemaComponents = [$checkboxList];
+
+        if ($this->collapsibleFacet) {
+            $checkboxList->hiddenLabel(); // the wrapping Section shows the heading instead
+
+            $section = Section::make($this->getLabel())
+                ->schema($schemaComponents)
+                ->collapsible()
+                ->collapsed($this->collapsedByDefault);
+
+            if ($this->persistCollapsedState) {
+                $section->persistCollapsed();
+            }
+
+            $schemaComponents = [$section];
+        }
+
+        $this->schema($schemaComponents);
 
         $this->query(function (Builder $query, array $data) use ($source, $fieldName): Builder {
             $selected = $data[$fieldName] ?? [];

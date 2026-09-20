@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Filament\Forms\Components\CheckboxList;
+use Filament\Schemas\Components\Section;
 use Filament\Tables\Table;
 use Hmmdlthf\FilamentRefineFilter\FacetSources\EnumFacetSource;
 use Hmmdlthf\FilamentRefineFilter\FacetSources\RelationshipFacetSource;
@@ -126,6 +128,45 @@ it('shows the filter\'s own label as a heading above its checkboxes', function (
 
     expect($checkboxList->isLabelHidden())->toBeFalse()
         ->and($checkboxList->getLabel())->toBe('Order Status');
+});
+
+// --- ->collapsible() / ->collapsed() / ->persistCollapsed() -------------
+
+it('is not wrapped in a collapsible section by default', function () {
+    $filter = RefineFilter::make('status')->enum(RefineFilterStatus::class);
+
+    expect($filter->getSchemaComponents()[0])->toBeInstanceOf(CheckboxList::class);
+});
+
+it('wraps the checkboxes in a collapsible section when ->collapsible() is called', function () {
+    $filter = RefineFilter::make('status')->label('Order Status')->enum(RefineFilterStatus::class)->collapsible();
+
+    $section = $filter->getSchemaComponents()[0];
+
+    expect($section)->toBeInstanceOf(Section::class)
+        ->and($section->getHeading())->toBe('Order Status')
+        ->and($section->isCollapsible())->toBeTrue()
+        ->and($section->isCollapsed())->toBeFalse();
+});
+
+it('starts collapsed when ->collapsed() is called, implying ->collapsible()', function () {
+    $filter = RefineFilter::make('status')->enum(RefineFilterStatus::class)->collapsed();
+
+    $section = $filter->getSchemaComponents()[0];
+
+    expect($section)->toBeInstanceOf(Section::class)
+        ->and($section->isCollapsible())->toBeTrue()
+        ->and($section->isCollapsed())->toBeTrue();
+});
+
+it('persists the collapsed state when ->persistCollapsed() is called, implying ->collapsible()', function () {
+    $filter = RefineFilter::make('status')->enum(RefineFilterStatus::class)->persistCollapsed();
+
+    $section = $filter->getSchemaComponents()[0];
+
+    expect($section)->toBeInstanceOf(Section::class)
+        ->and($section->isCollapsible())->toBeTrue()
+        ->and($section->shouldPersistCollapsed())->toBeTrue();
 });
 
 // --- resolveOptions() label formatting ----------------------------------
