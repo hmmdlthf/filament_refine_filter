@@ -1,0 +1,185 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Hmmdlthf\FilamentRefineFilter\Filters;
+
+use Filament\Forms\Components\CheckboxList;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Filters\Filter;
+use Hmmdlthf\FilamentRefineFilter\FacetSources\EnumFacetSource;
+use Hmmdlthf\FilamentRefineFilter\FacetSources\FacetSource;
+use Hmmdlthf\FilamentRefineFilter\FacetSources\RelationshipFacetSource;
+use Hmmdlthf\FilamentRefineFilter\Support\FacetCounter;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
+use LogicException;
+use UnitEnum;
+
+/**
+ * ScriptCase-style "Refine Search" facet: a checkbox list of every possible
+ * option for a column/relationship, each labelled with a live, faceted
+ * count, that ANDs together with every other active table filter.
+ *
+ * Usage:
+ *
+ *   RefineFilter::make('customer_group')
+ *       ->relationship('customerGroup', 'name')
+ *       ->searchable()
+ *
+ *   RefineFilter::make('status')
+ *       ->enum(OrderStatus::class)
+ *
+ * Drop it into ->filters([...], layout: FiltersLayout::AboveContentCollapsible)
+ * alongside normal Filament filters — it's a plain Filter subclass.
+ */
+class RefineFilter extends Filter
+{
+    protected ?FacetSource $source = null;
+
+    protected bool $showCounts = true;
+
+    protected bool $hideZeroCounts = false;
+
+    protected bool $searchableList = false;
+
+    /** The name of the CheckboxList field inside this filter's schema. */
+    protected string $fieldName = 'values';
+
+    /**
+     * Register a BelongsTo relationship facet.
+     *
+     * @param string $relationshipName e.g. 'customerGroup'
+     * @param string $labelColumn      Column on the related model to display, e.g. 'name'
+     * @param string|null $valueColumn Defaults to the related model's primary key
+     */
+    public function relationship(string $relationshipName, string $labelColumn, ?string $valueColumn = null): static
+    {
+        $this->source = new RelationshipFacetSource($relationshipName, $labelColumn, $valueColumn);
+
+        return $this->buildSchema();
+    }
+
+    /**
+     * Register a backed-PHP-enum column facet.
+     *
+     * @param class-string<UnitEnum> $enumClass
+     * @param string|null $column Defaults to this filter's own name
+     */
+    public function enum(string $enumClass, ?string $column = null): static
+    {
+        $this->source = new EnumFacetSource($enumClass, $column ?? $this->getName());
+
+        return $this->buildSchema();
+    }
+
+    public function showCounts(bool $condition = true): static
+    {
+        $this->showCounts = $condition;
+
+        return $this->buildSchema();
+    }
+
+    public function hideZeroCounts(bool $condition = true): static
+    {
+        $this->hideZeroCounts = $condition;
+
+        return $this->buildSchema();
+    }
+
+    public function searchable(bool $condition = true): static
+    {
+        $this->searchableList = $condition;
+
+        return $this->buildSchema();
+    }
+
+    protected function requireSource(): FacetSource
+    {
+        if (! $this->source) {
+            throw new LogicException(
+                "RefineFilter::make('{$this->getName()}') needs ->relationship(...) or ->enum(...) "
+                . 'before it can be used.'
+            );
+        }
+
+        return $this->source;
+    }
+
+    /**
+     * (Re)builds the underlying Filter's schema + query() every time a
+     * config method is called, so fluent chains in any order end up with
+     * a fully wired filter.
+     */
+    protected function buildSchema(): static
+    {
+        $source = $this->requireSource();
+        $filterName = $this->getName();
+        $fieldName = $this->fieldName;
+        $showCounts = $this->showCounts;
+        $hideZeroCounts = $this->hideZeroCounts;
+
+        $checkboxList = CheckboxList::make($fieldName)
+            ->label($this->getLabel())
+            ->hiddenLabel()
+            ->options(function (HasTable $livewire) use ($source, $filterName, $showCounts, $hideZeroCounts): array {
+                return self::resolveOptions($livewire, $source, $filterName, $showCounts, $hideZeroCounts);
+            })
+            ->live(); // re-run ->options() + sibling facets' counts on every toggle
+
+        if ($this->searchableList) {
+            $checkboxList->searchable();
+        }
+
+        $this->schema([$checkboxList]);
+
+        $this->query(function (Builder $query, array $data) use ($source, $fieldName): Builder {
+            $selected = $data[$fieldName] ?? [];
+
+            if (blank($selected)) {
+                return $query;
+            }
+
+            return $source->applyQuery($query, $selected);
+        });
+
+        return $this;
+    }
+
+    /**
+     * @return array<string, string> value => "Label (count)"
+     */
+    protected static function resolveOptions(
+        HasTable $livewire,
+        FacetSource $source,
+        string $filterName,
+        bool $showCounts,
+        bool $hideZeroCounts,
+    ): array {
+        $baseQuery = $livewire->getTable()->getQuery();
+
+        $options = $source instanceof RelationshipFacetSource
+            ? $source->getOptionsForQuery($baseQuery)
+            : $source->getOptions();
+
+        if (! $showCounts) {
+            return $options->all();
+        }
+
+        $counts = FacetCounter::countsFor($livewire, $filterName, $source);
+
+        return $options
+            ->mapWithKeys(function (string $label, string $value) use ($counts): array {
+                $count = (int) ($counts->get($value) ?? 0);
+
+                return [$value => "{$label} ({$count})"];
+            })
+            ->when(
+                $hideZeroCounts,
+                fn (Collection $opts) => $opts->filter(
+                    fn (string $label, string $value) => (int) ($counts->get($value) ?? 0) > 0
+                ),
+            )
+            ->all();
+    }
+}
