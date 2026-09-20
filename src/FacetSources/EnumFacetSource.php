@@ -53,17 +53,22 @@ class EnumFacetSource implements FacetSource
 
     public function getCounts(Builder $query): Collection
     {
-        return $query->clone()
-            ->toBase()
-            ->groupBy($this->column)
-            ->selectRaw("{$this->column} as facet_value, count(*) as aggregate")
+        $column = $query->getModel()->qualifyColumn($this->column);
+
+        return $query->toBase()
+            ->cloneWithout(['columns', 'orders'])
+            ->cloneWithoutBindings(['select', 'order'])
+            ->groupBy($column)
+            ->selectRaw("{$column} as facet_value, count(*) as aggregate")
             ->pluck('aggregate', 'facet_value')
             ->mapWithKeys(fn ($count, $value) => [(string) $value => (int) $count]);
     }
 
     public function applyQuery(Builder $query, array $selected): Builder
     {
-        return $query->whereIn($this->column, $selected);
+        $column = $query->getModel()->qualifyColumn($this->column);
+
+        return $query->whereIn($column, $selected);
     }
 
     public function getColumn(): string

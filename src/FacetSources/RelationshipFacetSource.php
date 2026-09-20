@@ -77,10 +77,11 @@ class RelationshipFacetSource implements FacetSource
     public function getCounts(Builder $query): Collection
     {
         $relation = $this->resolveRelation($query);
-        $foreignKey = $relation->getForeignKeyName();
+        $foreignKey = $relation->getQualifiedForeignKeyName();
 
-        return $query->clone()
-            ->toBase()
+        return $query->toBase()
+            ->cloneWithout(['columns', 'orders'])
+            ->cloneWithoutBindings(['select', 'order'])
             ->groupBy($foreignKey)
             ->selectRaw("{$foreignKey} as facet_value, count(*) as aggregate")
             ->pluck('aggregate', 'facet_value')
@@ -90,7 +91,7 @@ class RelationshipFacetSource implements FacetSource
     public function applyQuery(Builder $query, array $selected): Builder
     {
         $relation = $this->resolveRelation($query);
-        $foreignKey = $relation->getForeignKeyName();
+        $foreignKey = $relation->getQualifiedForeignKeyName();
 
         return $query->whereIn($foreignKey, $selected);
     }
