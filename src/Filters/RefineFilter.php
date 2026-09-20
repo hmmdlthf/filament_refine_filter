@@ -121,7 +121,6 @@ class RefineFilter extends Filter
 
         $checkboxList = CheckboxList::make($fieldName)
             ->label($this->getLabel())
-            ->hiddenLabel()
             ->options(function (HasTable $livewire) use ($source, $filterName, $showCounts, $hideZeroCounts): array {
                 return self::resolveOptions($livewire, $source, $filterName, $showCounts, $hideZeroCounts);
             })

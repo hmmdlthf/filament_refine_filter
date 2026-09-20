@@ -119,6 +119,15 @@ it('does not mark the CheckboxList searchable by default', function () {
     expect($checkboxList->isSearchable())->toBeFalse();
 });
 
+it('shows the filter\'s own label as a heading above its checkboxes', function () {
+    $filter = RefineFilter::make('status')->label('Order Status')->enum(RefineFilterStatus::class);
+
+    $checkboxList = $filter->getSchemaComponents()[0];
+
+    expect($checkboxList->isLabelHidden())->toBeFalse()
+        ->and($checkboxList->getLabel())->toBe('Order Status');
+});
+
 // --- resolveOptions() label formatting ----------------------------------
 
 it('formats resolved options as "Label (count)" when showCounts is enabled', function () {
