@@ -42,6 +42,17 @@ public static function table(Table $table): Table
 
 `relationship()` expects a `BelongsTo` method on the model (e.g. `Customer::customerGroup()`), and the column on the related model to use as the checkbox label (e.g. `name`).
 
+### Filter panel position (sidebar vs. above the table)
+
+`RefineFilter` is a plain `Filter`, so it has no opinion on where the filters panel sits — that's controlled entirely by the `layout:` argument you pass to `->filters()`, same as any other Filament filter. No package changes needed to move it:
+
+```php
+->filters([...], layout: FiltersLayout::BeforeContent)             // always-visible, left of the table
+->filters([...], layout: FiltersLayout::AfterContent)               // always-visible, right of the table
+->filters([...], layout: FiltersLayout::BeforeContentCollapsible)   // collapsible sidebar on the left; table reflows when toggled
+->filters([...], layout: FiltersLayout::AfterContentCollapsible)    // collapsible sidebar on the right; table reflows when toggled
+```
+
 ### Enum facet (backed PHP enums)
 
 ```php
